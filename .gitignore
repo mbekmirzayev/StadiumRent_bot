@@ -9,7 +9,7 @@ venv/
 
 # Maxfiy ma'lumotlar (Tokenlar va API kalitlar)
 config.ini
-
+.idea
 *.log
 .venv
 # Ma'lumotlar bazasi (agar lokal SQLite ishlatsangiz)
