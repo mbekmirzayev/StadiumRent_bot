@@ -1,0 +1,17 @@
+# Python kesh fayllari
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual muhit (Virtual environment)
+venv/
+.env
+
+# Maxfiy ma'lumotlar (Tokenlar va API kalitlar)
+config.ini
+
+*.log
+.venv
+# Ma'lumotlar bazasi (agar lokal SQLite ishlatsangiz)
+*.sqlite3
+*.db
