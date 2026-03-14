@@ -3,7 +3,7 @@ from aiogram import Router
 from aiogram.fsm.context import FSMContext
 
 from api_client import APIClient
-from keyboards.inline import get_stadium_detail_kb, get_stadium_list_kb
+from keyboards.inline import get_stadium_detail_kb, get_stadium_list_kb, get_slots_keyboard, get_days_keyboard
 
 router = Router()
 api = APIClient()
@@ -169,7 +169,6 @@ async def show_nearby_page(message: types.Message, lat, lon, page=1):
     if nav_buttons:
         kb.row(*nav_buttons)
 
-
         img_url = st.get('image')
 
         try:
@@ -210,3 +209,87 @@ async def paginate_nearby(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await show_nearby_page(callback.message, lat, lon, page)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("b_"))
+async def start_booking(callback: types.CallbackQuery):
+    stadium_id = callback.data.split("_")[1]
+
+    await callback.message.edit_text(
+        "📅 Bron qilish uchun sana tanlang (1 oylik muddat):",
+        reply_markup=get_days_keyboard(stadium_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("bookday_"))
+async def show_time_slots(callback: types.CallbackQuery, state: FSMContext):
+    _, stadium_id, selected_date = callback.data.split("_")
+
+    st = api.get_stadium_detail(stadium_id)
+    if not st:
+        await callback.answer("Xatolik yuz berdi")
+        return
+
+    start_h = int(st.get('open_at', '08:00').split(':')[0])
+    end_h = int(st.get('closed_at', '22:00').split(':')[0])
+
+    booked_slots = st.get('booked_slots', [])
+
+    await callback.message.edit_text(
+        f"🏟 <b>{st['name']}</b>\n📅 Sana: {selected_date}\n\nKerakli vaqt oralig'ini tanlang:",
+        reply_markup=get_slots_keyboard(stadium_id, selected_date, start_h, end_h, booked_slots),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("save_"))
+async def confirm_time_slot(callback: types.CallbackQuery, state: FSMContext):
+    _, stadium_id, date, time = callback.data.split("_")
+
+    await state.update_data(
+        stadium_id=stadium_id,
+        booking_date=date,
+        start_time=time
+    )
+
+    h = int(time.split(":")[0])
+    end_time = f"{h + 1:02d}:00"
+    await state.update_data(end_time=end_time)
+
+    text = (
+        f"🏁 <b>Bronni tasdiqlang:</b>\n"
+        f"📅 Sana: {date}\n"
+        f"⏰ Vaqt: {time} - {end_time}\n"
+    )
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Tasdiqlash", callback_data="final_confirm")
+    kb.button(text="❌ Bekor qilish", callback_data=f"bookday_{stadium_id}_{date}")
+
+    await callback.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "final_confirm")
+async def final_booking_confirmation(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+
+    stadium_id = data.get("stadium_id")
+    booking_date = data.get("booking_date")
+    start_time = data.get("start_time")
+    end_time = data.get("end_time")
+
+    success_text = (
+        "✅ <b>Muvaffaqiyatli band qilindi!</b>\n\n"
+        f"🏟 Stadion ID: {stadium_id}\n"
+        f"📅 Sana: {booking_date}\n"
+        f"⏰ Vaqt: {start_time} - {end_time}\n\n"
+        "Operatorimiz tez orada siz bilan bog'lanadi."
+    )
+
+    await callback.message.edit_text(success_text, parse_mode="HTML")
+
+    await state.clear()
+    await callback.answer("Bron tasdiqlandi!")

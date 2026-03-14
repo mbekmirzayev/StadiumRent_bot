@@ -51,16 +51,36 @@ class APIClient:
         response = requests.get(url, params=params)
         return response.json() if response.status_code == 200 else []
 
+    # def get_stadium_detail(self, stadium_id):
+    #     url = f"{self.base_url}/stadium/{stadium_id}/"
+    #     try:
+    #         response = requests.get(url)
+    #         print(f"API Request to: {url} | Status: {response.status_code}")
+    #         if response.status_code == 200:
+    #             return response.json()
+    #     except Exception as e:
+    #         print(f"Backendga bog'lanishda xato: {e}")
+    #     return None
+
     def get_stadium_detail(self, stadium_id):
+        # Xavfsizlik filtri: stadium_id None, "None" yoki "search" bo'lsa so'rov yubormaymiz
+        if not stadium_id or stadium_id in [None, "None", "search"]:
+            # print("DEBUG: get_stadium_detail uchun noto'g'ri ID keldi, so'rov bekor qilindi.")
+            return None
+
         url = f"{self.base_url}/stadium/{stadium_id}/"
         try:
             response = requests.get(url)
             print(f"API Request to: {url} | Status: {response.status_code}")
+
             if response.status_code == 200:
                 return response.json()
+
         except Exception as e:
             print(f"Backendga bog'lanishda xato: {e}")
+
         return None
+
 
     def create_booking(self, token, data):
         url = f"{self.base_url}/bookings/"
@@ -88,3 +108,25 @@ class APIClient:
         if response.status_code == 200:
             return response.json()
         return None
+
+    def search_by_time(self, date, start_time, end_time):
+
+        params = {
+            "date": date,
+            "start_time": start_time,  # Format: HH:MM
+            "end_time": end_time  # Format: HH:MM
+        }
+
+        url = f"{self.base_url}/stadium/"
+
+        try:
+            response = requests.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('results', data) if isinstance(data, dict) else data
+            else:
+                print(f"API Error: {response.status_code}")
+        except Exception as e:
+            print(f"Request Exception: {e}")
+
+        return []
